@@ -15,7 +15,7 @@
 
 I'm an engineering student at **ENIT** (École Nationale d'Ingénieurs de Tunis). I like problems where maths, software and hardware meet: a PID loop keeping a robot on a line, a live map of trains, a language model running on my own PC.
 
-I also run **PHYTO Cappuccino**, a beverage brand I'm building from scratch, so I care about shipping things people can actually use, not only things that compile.
+I also corun **PHYTO Cappuccino**, a beverage brand I helped building from scratch, so I care about shipping things people can actually use, not only things that compile.
 
 <img src="assets/about-terminal.svg" alt="Terminal-style summary: ENIT engineering student; projects R3T, PHYTO Cappuccino, line follower, Neural Agent; interests in software, local AI agents, embedded control and entrepreneurship" width="100%">
 
