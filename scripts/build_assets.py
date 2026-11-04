@@ -7,6 +7,7 @@ All animation is CSS-in-SVG (no JavaScript) and is disabled under
 `prefers-reduced-motion`. Every SVG paints its own dark panel, so contrast
 is identical in GitHub light and dark mode.
 """
+import json
 import math
 import re
 import random
@@ -164,6 +165,7 @@ def hero():
   <g fill="none" stroke="url(#wg)" stroke-width=".9" opacity=".7"><g class="w2">{r2}</g></g>
   <rect y="{H - 170}" width="{W}" height="170" fill="url(#bg)" opacity=".0"/>
 
+  <text x="70" y="86" font-family="{MONO}" font-size="17" fill="{MUTED}" letter-spacing="3" class="hi">ENIT · TUNIS · SOFTWARE · EMBEDDED · AI</text>
   <g class="hi2">
     <text x="66" y="232" font-family="{SANS}" font-size="78" font-weight="700" fill="#F4F6FF" letter-spacing="-1">Oussama Ben Henia</text>
     <rect x="70" y="256" width="120" height="5" rx="2.5" fill="url(#brand)"/>
@@ -284,16 +286,16 @@ def tech():
 PROJECTS = [
     ("r3t", "R3T", "Real-time railway tracking", CYAN, BLUE,
      "Tracks trains in real time, built as a mobile-friendly PWA.",
-     ["PWA", "Real-time", "Mobile-first"], "PRIVATE · IN DEVELOPMENT"),
+     ["PWA", "Real-time", "Mobile-first"], "PRIVATE REPOSITORY"),
     ("phyto", "PHYTO Cappuccino", "Beverage brand & website", GOLD, MAGENTA,
      "My beverage brand: the product, the identity and the website.",
-     ["Brand", "Web", "Startup"], "PRIVATE · ACTIVE"),
+     ["Brand", "Web", "Startup"], "PRIVATE REPOSITORY"),
     ("robot", "ESP32 Line-Follower", "Robotics · control systems", GREEN, CYAN,
      "Follows a line using a sensor array, motor control and PID.",
-     ["ESP32", "PID", "Sensors"], "BUILT"),
+     ["ESP32", "PID", "Sensors"], "ROBOTICS PROJECT"),
     ("neural", "Neural Agent", "Local AI desktop assistant", PURPLE, MAGENTA,
      "Windows assistant on local Ollama models: chat, files, PC actions.",
-     ["Python", "Ollama", "pywebview"], "PUBLIC · OPEN SOURCE"),
+     ["Python", "Ollama", "pywebview"], "PUBLIC REPOSITORY"),
 ]
 
 
@@ -305,32 +307,61 @@ def project(slug, name, kind, c1, c2, desc, tags, status):
         chips.append(f'<rect x="{x}" y="186" width="{w}" height="36" rx="18" fill="{c1}" fill-opacity=".14" stroke="{c1}" stroke-opacity=".8"/>'
                      f'<text x="{x + w / 2}" y="210" text-anchor="middle" font-family="{MONO}" font-size="17" fill="{TEXT}">{escape(t)}</text>')
         x += w + 12
+    hint = "Open details" if slug != "neural" else "Open details · repo"
     body = f"""
-<defs>{grad("g", [("0", c1), ("1", c2)], "0", "1")}</defs>
-<rect width="{W}" height="{H}" rx="14" fill="{PANEL}"/>
-<rect width="8" height="{H}" rx="4" fill="url(#g)"/>
-<text x="44" y="54" font-family="{MONO}" font-size="17" fill="{MUTED}" letter-spacing="1.5">{escape(status)}</text>
-<text x="44" y="112" font-family="{SANS}" font-size="50" font-weight="700" fill="{TEXT}">{escape(name)}</text>
-<text x="44" y="146" font-family="{SANS}" font-size="24" fill="{c1}">{escape(kind)}</text>
-<text x="44" y="176" font-family="{SANS}" font-size="21" fill="{MUTED}">{escape(desc)}</text>
-{"".join(chips)}"""
+<defs>{grad("g", [("0", c1), ("1", c2)], "0", "1")}
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#121842"/><stop offset="1" stop-color="{PANEL}"/></linearGradient>
+<linearGradient id="hl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{c1}" stop-opacity=".9"/><stop offset=".6" stop-color="{c2}" stop-opacity=".25"/><stop offset="1" stop-color="{c2}" stop-opacity="0"/></linearGradient>
+<radialGradient id="gl" cx="1" cy="0" r="1"><stop offset="0" stop-color="{c2}" stop-opacity=".22"/><stop offset="1" stop-color="{c2}" stop-opacity="0"/></radialGradient>
+<clipPath id="f"><rect width="{W}" height="{H}" rx="16"/></clipPath></defs>
+<g clip-path="url(#f)">
+<rect width="{W}" height="{H}" fill="url(#p)"/>
+<rect width="{W}" height="{H}" fill="url(#gl)"/>
+<rect width="{W}" height="2" fill="url(#hl)"/>
+<rect width="7" height="{H}" fill="url(#g)"/></g>
+<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="16" fill="none" stroke="#2A3270" stroke-opacity=".9"/>
+<text x="44" y="56" font-family="{MONO}" font-size="16" fill="{c1}" letter-spacing="2.5">{escape(status)}</text>
+<text x="44" y="114" font-family="{SANS}" font-size="50" font-weight="700" fill="{TEXT}" letter-spacing="-.5">{escape(name)}</text>
+<text x="44" y="148" font-family="{SANS}" font-size="23" fill="{c1}">{escape(kind)}</text>
+<text x="44" y="178" font-family="{SANS}" font-size="21" fill="{MUTED}">{escape(desc)}</text>
+{"".join(chips)}
+<text x="{W - 44}" y="{H - 28}" text-anchor="end" font-family="{MONO}" font-size="16" fill="{MUTED}" letter-spacing="1">{hint}  ▾</text>"""
     css = ""
     return svg(W, H, body, f"{name}: {kind}", f"{desc} Status: {status}.", css)
+
+
+# ---------------------------------------------------------------- nav
+NAV = [("about", "About", CYAN), ("stack", "Stack", BLUE), ("projects", "Projects", PURPLE),
+       ("activity", "Activity", MAGENTA)]
+
+
+def nav(label, c):
+    W, H = 220, 56
+    body = f"""<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#151B48"/><stop offset="1" stop-color="{PANEL}"/></linearGradient></defs>
+<rect x="1" y="1" width="{W - 2}" height="{H - 2}" rx="28" fill="url(#g)" stroke="{c}" stroke-opacity=".55" stroke-width="1.5"/>
+<circle cx="38" cy="28" r="5" fill="{c}"/>
+<text x="60" y="35" font-family="{SANS}" font-size="22" font-weight="600" fill="{TEXT}">{escape(label)}</text>"""
+    return svg(W, H, body, label, f"Jump to the {label} section")
 
 
 # -------------------------------------------------------------- stats
 def render_stats(d=None):
     """d: dict(repos, followers, commits, prs, issues, since, langs=[(name, pct)]) or None."""
-    W, H = 1200, 330
+    W, H = 1200, 360
     pending = d is None
     nums = [("Public repos", "repos", CYAN), ("Contributions (last year)", "commits", PURPLE),
-            ("Pull requests", "prs", MAGENTA), ("Followers", "followers", GOLD)]
+            ("Pull requests", "prs", MAGENTA), ("Top language", "top", GOLD)]
     out = []
     for i, (lab, key, c) in enumerate(nums):
-        x, y = 40 + (i % 2) * 290, 90 + (i // 2) * 105
-        v = "—" if pending else f"{d[key]:,}"
+        x, y = 40 + (i % 2) * 290, 126 + (i // 2) * 105
+        if pending:
+            v = "—"
+        elif key == "top":
+            v = d["langs"][0][0] if d["langs"] else "—"
+        else:
+            v = f"{d[key]:,}"
         out.append(f'<rect x="{x}" y="{y - 52}" width="270" height="90" rx="14" fill="{NAVY}" stroke="{c}" stroke-opacity=".6"/>'
-                   f'<text x="{x + 20}" y="{y + 8}" font-family="{SANS}" font-size="44" font-weight="800" fill="{c}">{v}</text>'
+                   f'<text x="{x + 20}" y="{y + 8}" font-family="{SANS}" font-size="{44 if len(str(v)) < 9 else 34}" font-weight="800" fill="{c}">{v}</text>'
                    f'<text x="{x + 20}" y="{y + 30}" font-family="{SANS}" font-size="16" fill="{MUTED}">{escape(lab)}</text>')
     langs = [] if pending else d["langs"][:6]
     pal = [CYAN, PURPLE, MAGENTA, BLUE, GREEN, GOLD]
@@ -338,9 +369,9 @@ def render_stats(d=None):
         out.append(f'<text x="700" y="150" font-family="{MONO}" font-size="20" fill="{MUTED}">Live numbers appear after the first run of</text>'
                    f'<text x="700" y="180" font-family="{MONO}" font-size="20" fill="{CYAN}">.github/workflows/stats.yml</text>')
     else:
-        out.append(f'<text x="640" y="62" font-family="{SANS}" font-size="22" font-weight="700" fill="{TEXT}">Languages (public repositories)</text>')
+        out.append(f'<text x="640" y="86" font-family="{SANS}" font-size="22" font-weight="700" fill="{TEXT}">Languages (public repositories)</text>')
         for i, (n, p) in enumerate(langs):
-            y = 96 + i * 38
+            y = 112 + i * 38
             out.append(f'<text x="640" y="{y + 16}" font-family="{SANS}" font-size="18" fill="{TEXT}">{escape(n)}</text>'
                        f'<rect x="780" y="{y}" width="340" height="14" rx="7" fill="{NAVY}"/>'
                        f'<rect x="780" y="{y}" width="{max(6, 340 * p / 100):.0f}" height="14" rx="7" fill="{pal[i % 6]}"/>'
@@ -374,11 +405,12 @@ def main():
                           "projects": ("Projects", ""), "stats": ("Activity", "from the GitHub API"),
                           "snake": ("Contributions", "")}.items():
         files[f"h-{k}.svg"] = header(lab, sub)
+    for k, lab, c in NAV:
+        files[f"nav-{k}.svg"] = nav(lab, c)
     for p in PROJECTS:
         files[f"project-{p[0]}.svg"] = project(*p)
-    stats = OUT / "stats.svg"
-    if not stats.exists():  # never overwrite real generated stats
-        files["stats.svg"] = render_stats(None)
+    cache = OUT / "stats.json"  # written by generate_stats.py from the GitHub API
+    files["stats.svg"] = render_stats(json.loads(cache.read_text()) if cache.exists() else None)
     for n, c in files.items():
         (OUT / n).write_text(c, encoding="utf-8")
     print(f"wrote {len(files)} files to {OUT}")

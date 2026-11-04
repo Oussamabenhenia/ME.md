@@ -48,6 +48,7 @@ def main():
         "langs": [(n, 100 * b / total) for n, b in langs.most_common(6)],
         "updated": date.today().isoformat(),
     }
+    (OUT / "stats.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
     (OUT / "stats.svg").write_text(render_stats(data), encoding="utf-8")
 
 
