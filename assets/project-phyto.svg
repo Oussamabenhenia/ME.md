@@ -1,9 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 250" width="1200" height="250" role="img" aria-labelledby="t d"><title id="t">PHYTO Cappuccino: Beverage brand &amp; website</title><desc id="d">My beverage brand: the product, the identity and the website. Status: PRIVATE · ACTIVE.</desc><style>@media (prefers-reduced-motion: reduce){*{animation:none!important}}</style>
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#EC4899"/></linearGradient></defs>
-<rect width="1200" height="250" rx="14" fill="#0E1330"/>
-<rect width="8" height="250" rx="4" fill="url(#g)"/>
-<text x="44" y="54" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#9AA4C7" letter-spacing="1.5">PRIVATE · ACTIVE</text>
-<text x="44" y="112" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="50" font-weight="700" fill="#E6EAF7">PHYTO Cappuccino</text>
-<text x="44" y="146" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#FBBF24">Beverage brand &amp; website</text>
-<text x="44" y="176" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#9AA4C7">My beverage brand: the product, the identity and the website.</text>
-<rect x="44" y="186" width="90" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="89.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Brand</text><rect x="146" y="186" width="66" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="179.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Web</text><rect x="224" y="186" width="114" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="281.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Startup</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 250" width="1200" height="250" role="img" aria-labelledby="t d"><title id="t">PHYTO Cappuccino: Beverage brand &amp; website</title><desc id="d">My beverage brand: the product, the identity and the website. Status: PRIVATE REPOSITORY.</desc><style>@media (prefers-reduced-motion: reduce){*{animation:none!important}}</style>
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#EC4899"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#121842"/><stop offset="1" stop-color="#0E1330"/></linearGradient>
+<linearGradient id="hl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FBBF24" stop-opacity=".9"/><stop offset=".6" stop-color="#EC4899" stop-opacity=".25"/><stop offset="1" stop-color="#EC4899" stop-opacity="0"/></linearGradient>
+<radialGradient id="gl" cx="1" cy="0" r="1"><stop offset="0" stop-color="#EC4899" stop-opacity=".22"/><stop offset="1" stop-color="#EC4899" stop-opacity="0"/></radialGradient>
+<clipPath id="f"><rect width="1200" height="250" rx="16"/></clipPath></defs>
+<g clip-path="url(#f)">
+<rect width="1200" height="250" fill="url(#p)"/>
+<rect width="1200" height="250" fill="url(#gl)"/>
+<rect width="1200" height="2" fill="url(#hl)"/>
+<rect width="7" height="250" fill="url(#g)"/></g>
+<rect x=".5" y=".5" width="1199" height="249" rx="16" fill="none" stroke="#2A3270" stroke-opacity=".9"/>
+<text x="44" y="56" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="16" fill="#FBBF24" letter-spacing="2.5">PRIVATE REPOSITORY</text>
+<text x="44" y="114" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="50" font-weight="700" fill="#E6EAF7" letter-spacing="-.5">PHYTO Cappuccino</text>
+<text x="44" y="148" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="23" fill="#FBBF24">Beverage brand &amp; website</text>
+<text x="44" y="178" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#9AA4C7">My beverage brand: the product, the identity and the website.</text>
+<rect x="44" y="186" width="90" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="89.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Brand</text><rect x="146" y="186" width="66" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="179.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Web</text><rect x="224" y="186" width="114" height="36" rx="18" fill="#FBBF24" fill-opacity=".14" stroke="#FBBF24" stroke-opacity=".8"/><text x="281.0" y="210" text-anchor="middle" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="17" fill="#E6EAF7">Startup</text>
+<text x="1156" y="222" text-anchor="end" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="16" fill="#9AA4C7" letter-spacing="1">Open details  ▾</text></svg>
