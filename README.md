@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/hero.svg" alt="Oussama Ben Henia: engineering student at ENIT, software developer, AI agents and automation, robotics builder, founder of PHYTO Cappuccino" width="100%">
+  <img src="assets/hero.svg" alt="Oussama Ben Henia: engineering student at ENIT, software developer, AI agents and automation, robotics lover, cofounder of PHYTO Cappuccino" width="100%">
 </div>
 
 <p align="center">
