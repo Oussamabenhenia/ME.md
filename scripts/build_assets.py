@@ -1,414 +1,369 @@
 #!/usr/bin/env python3
 """Generates every SVG in assets/ (pure stdlib, deterministic).
 
-Usage:  python scripts/build_assets.py
+    python scripts/build_assets.py
 
-All animation is CSS-in-SVG (no JavaScript) and is disabled under
-`prefers-reduced-motion`. Every SVG paints its own dark panel, so contrast
-is identical in GitHub light and dark mode.
+Design system: "the page is a railway line".
+  - Paper, ink and one hot vermilion; olive, cobalt and lavender appear only
+    where a project owns them.
+  - Square corners, hairline rules, no cards, no pills, no glow.
+  - Type: a serif for voice, a Swiss sans for titles, a mono for metadata.
+    Fonts are system stacks (an SVG used as <img> cannot load web fonts);
+    big display lines use textLength so layout survives font substitution.
+  - Motion is CSS-in-SVG, slow, and switched off by prefers-reduced-motion.
+Every SVG paints its own background, so it reads the same in light and dark mode.
 """
 import json
 import math
-import re
-import random
 from html import escape
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "assets"
 
-CYAN, PURPLE, MAGENTA = "#00E5FF", "#8B5CF6", "#EC4899"
-BLUE, GREEN, GOLD, NAVY = "#3B82F6", "#10B981", "#FBBF24", "#080B1A"
-PANEL, TEXT, MUTED = "#0E1330", "#E6EAF7", "#9AA4C7"
-SANS = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
-MONO = "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace"
+INK, PAPER, KRAFT = "#1B1814", "#F3ECDD", "#E8D8B6"
+VERM, OLIVE, COBALT, LAV = "#D9441F", "#5E6B38", "#27479A", "#BDAED0"
+MUTE, SOFT = "#6B6457", "#CFC6B2"  # secondary text on paper / on ink
+
+SERIF = "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua','Charter','Bitstream Charter',Georgia,serif"
+SANS = "'Helvetica Neue',Helvetica,'Arial Nova',Arial,'Inter',sans-serif"
+MONO = "ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono','DejaVu Sans Mono',monospace"
 
 REDUCED = "@media (prefers-reduced-motion: reduce){*{animation:none!important}}"
 
 
-def svg(w, h, body, title, desc, css=""):
+def svg(w, h, body, title, desc, css="", defs=""):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
         f'role="img" aria-labelledby="t d"><title id="t">{escape(title)}</title>'
-        f'<desc id="d">{escape(desc)}</desc><style>{css}{REDUCED}</style>{body}</svg>\n'
+        f'<desc id="d">{escape(desc)}</desc><style>{css}{REDUCED}</style>'
+        f'<defs>{defs}<filter id="grain" x="0" y="0" width="100%" height="100%">'
+        f'<feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/>'
+        f'<feColorMatrix in="n" type="matrix" values="0 0 0 0 .25  0 0 0 0 .2  0 0 0 0 .1  0 0 0 .11 0"/></filter></defs>'
+        f'{body}</svg>\n'
     )
 
 
-def grad(id_, stops, x2="1", y2="0"):
-    s = "".join(f'<stop offset="{o}" stop-color="{c}"/>' for o, c in stops)
-    return f'<linearGradient id="{id_}" x1="0" y1="0" x2="{x2}" y2="{y2}">{s}</linearGradient>'
+def paper(w, h, fill=PAPER, grain=True):
+    g = f'<rect width="{w}" height="{h}" filter="url(#grain)"/>' if grain else ""
+    return f'<rect width="{w}" height="{h}" fill="{fill}"/>{g}'
 
 
-BRAND = [("0", CYAN), ("0.4", BLUE), ("0.7", PURPLE), ("1", MAGENTA)]
+def t(x, y, s, size, fill=INK, family=SANS, weight=400, anchor="start", ls=0, style="", extra=""):
+    return (f'<text x="{x}" y="{y}" font-family="{family}" font-size="{size}" font-weight="{weight}" fill="{fill}" '
+            f'text-anchor="{anchor}" letter-spacing="{ls}"{f' font-style="{style}"' if style else ""} {extra}>{escape(s)}</text>')
 
 
-def ribbon(w, h, cy, amp, half, lines, phase_shift=0.0):
-    """Twisting mesh ribbon like the reference art: many sine lines whose
-    amplitude sweeps +a -> -a, drawn over >= 3 periods so a one-period
-    translation loops seamlessly."""
-    out = []
-    period = half * 2
-    x0 = -period + phase_shift
-    n = int((w + 3 * period) / half) + 2
-    for i in range(lines):
-        t = i / (lines - 1)
-        a = amp * math.cos(math.pi * t)
-        y = cy + (t - 0.5) * amp * 0.9
-        d = f"M{x0:.1f} {y:.1f}"
-        for k in range(n):
-            sign = -1 if k % 2 == 0 else 1
-            x1 = x0 + (k + 1) * half
-            if k == 0:
-                d += f"Q{x0 + half / 2:.1f} {y + sign * a * 2:.1f} {x1:.1f} {y:.1f}"
-            else:
-                d += f"T{x1:.1f} {y:.1f}"
-        op = 0.25 + 0.55 * (1 - abs(2 * t - 1))
-        out.append(f'<path d="{d}" opacity="{op:.2f}"/>')
-    return "".join(out), period
-
-
-# ---------------------------------------------------------------- hero
+# ================================================================ masthead
 ROLES = [
-    "Engineering student @ ENIT",
-    "Software developer",
-    "AI agents & automation",
-    "Robotics builder (ESP32)",
-    "Founder of PHYTO Cappuccino",
+    "engineering student at ENIT",
+    "software developer",
+    "builder of AI agents",
+    "robotics tinkerer, ESP32",
+    "founder of PHYTO Cappuccino",
 ]
+STATIONS = [(60, "01  ABOUT", "start"), (420, "02  INDEX", "middle"), (780, "03  WORK", "middle"), (1140, "04  ACTIVITY", "end")]
 
 
-def hero():
-    W, H = 1200, 460
-    rnd = random.Random(7)
-    stars = []
-    for i in range(28):
-        x, y = rnd.uniform(0, W), rnd.uniform(0, H)
-        r = rnd.choice([0.8, 1.1, 1.6, 2.2])
-        c = rnd.choice([CYAN, CYAN, BLUE, PURPLE, MAGENTA, "#FFFFFF"])
-        stars.append(
-            f'<circle cx="{x:.0f}" cy="{y:.0f}" r="{r}" fill="{c}" class="st" '
-            f'style="animation-delay:{rnd.uniform(0, 6):.1f}s;animation-duration:{rnd.uniform(3, 7):.1f}s"/>'
-        )
-    # constellation lines between nearby stars
-    pts = [(rnd.uniform(0, W), rnd.uniform(0, H)) for _ in range(12)]
-    lines = []
-    for i, (x, y) in enumerate(pts):
-        for (x2, y2) in pts[i + 1:]:
-            if math.hypot(x - x2, y - y2) < 260:
-                lines.append(f'<line x1="{x:.0f}" y1="{y:.0f}" x2="{x2:.0f}" y2="{y2:.0f}"/>')
-        lines.append(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="2.4" fill="{CYAN}" stroke="none"/>')
-
-    r1, p1 = ribbon(W, H, 392, 52, 150, 28)
-    r2, p2 = ribbon(W, H, 410, 34, 110, 20, phase_shift=40)
-
-    # typing animation: one cycle = len(ROLES) slots
-    slot = 4.0
-    total = slot * len(ROLES)
-    CW = 15.6  # px per monospace char at 26px
+def masthead():
+    W, H = 1200, 680
+    cycle = 25.0
     css = [
-        ".st{animation:tw 4s ease-in-out infinite}@keyframes tw{0%,100%{opacity:.15}50%{opacity:1}}",
-        f".w1{{animation:d1 {p1 / 20:.0f}s linear infinite}}@keyframes d1{{to{{transform:translateX(-{int(p1)}px)}}}}",
-        f".w2{{animation:d2 {p2 / 14:.0f}s linear infinite reverse}}@keyframes d2{{to{{transform:translateX(-{int(p2)}px)}}}}",
-        ".hi{animation:rise 1.2s ease-out both}.hi2{animation:rise 1.2s .35s ease-out both}"
-        "@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}",
-        ".blink{animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}",
-        ".glow{animation:gl 5s ease-in-out infinite}@keyframes gl{50%{opacity:.75}}",
+        ".r{opacity:0}.r0{opacity:1}",
     ]
-    typing = []
-    cu_keys = []
+    roles = []
     for k, role in enumerate(ROLES):
-        n = len(role)
-        a = k * slot / total * 100
-        b = (k * slot + 1.6) / total * 100
-        c = (k * slot + 3.4) / total * 100
-        e = (k + 1) * slot / total * 100
-        wpx = n * CW
-        css.append(
-            f"#c{k}{{width:{wpx if k == 0 else 0:.0f}px;animation:ty{k} {total:.0f}s infinite}}"
-            f"@keyframes ty{k}{{0%,{a:.2f}%{{width:0;animation-timing-function:steps({n},end)}}"
-            f"{b:.2f}%,{c:.2f}%{{width:{wpx:.0f}px;animation-timing-function:step-end}}"
-            f"{e:.2f}%,100%{{width:0}}}}"
-        )
-        cu_keys.append(
-            f"{a:.2f}%{{transform:translateX(0);animation-timing-function:steps({n},end)}}"
-            f"{b:.2f}%,{c:.2f}%{{transform:translateX({wpx:.0f}px);animation-timing-function:step-end}}"
-            f"{e - 0.01:.2f}%{{transform:translateX({wpx:.0f}px)}}"
-        )
-        typing.append(
-            f'<clipPath id="cp{k}"><rect id="c{k}" x="0" y="-30" height="44"/></clipPath>'
-            f'<text x="0" y="0" font-family="{MONO}" font-size="26" fill="{TEXT}" clip-path="url(#cp{k})">{escape(role)}</text>'
-        )
-    css.append(f"#cur{{transform:translateX({len(ROLES[0]) * CW:.0f}px);animation:cu {total:.0f}s infinite}}"
-               f"@keyframes cu{{0%{{transform:translateX(0)}}{''.join(cu_keys)}100%{{transform:translateX(0)}}}}")
-    typing.append(f'<g id="cur"><rect class="blink" x="2" y="-26" width="12" height="30" fill="{CYAN}"/></g>')
-
-    body = f"""
-<defs>
-  {grad("bg", [("0", "#05060F"), ("0.5", NAVY), ("1", "#120A28")], "1", "1")}
-  {grad("brand", BRAND)}
-  <linearGradient id="wg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{W}" y2="0">
-    <stop offset="0" stop-color="{CYAN}"/><stop offset="0.45" stop-color="{BLUE}"/>
-    <stop offset="0.75" stop-color="{PURPLE}"/><stop offset="1" stop-color="{MAGENTA}"/></linearGradient>
-  <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-    <path d="M48 0H0V48" fill="none" stroke="#1B2350" stroke-width="1" opacity=".55"/></pattern>
-  <filter id="blur" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
-  <clipPath id="frame"><rect width="{W}" height="{H}" rx="22"/></clipPath>
-  {"".join(re.findall(r"<clipPath.*?</clipPath>", "".join(typing)))}
-</defs>
-<g clip-path="url(#frame)">
-  <rect width="{W}" height="{H}" fill="url(#bg)"/>
-  <rect width="{W}" height="{H}" fill="url(#grid)"/>
-  <g stroke="{BLUE}" stroke-width=".8" opacity=".22" fill="none">{"".join(lines)}</g>
-  {"".join(stars)}
-  <g fill="none" stroke="url(#wg)" stroke-width="1.1" opacity=".8">
-    <g class="w1">{r1}</g>
-  </g>
-  <g fill="none" stroke="url(#wg)" stroke-width=".9" opacity=".7"><g class="w2">{r2}</g></g>
-  <rect y="{H - 170}" width="{W}" height="170" fill="url(#bg)" opacity=".0"/>
-
-  <text x="70" y="86" font-family="{MONO}" font-size="17" fill="{MUTED}" letter-spacing="3" class="hi">ENIT · TUNIS · SOFTWARE · EMBEDDED · AI</text>
-  <g class="hi2">
-    <text x="66" y="232" font-family="{SANS}" font-size="78" font-weight="700" fill="#F4F6FF" letter-spacing="-1">Oussama Ben Henia</text>
-    <rect x="70" y="256" width="120" height="5" rx="2.5" fill="url(#brand)"/>
-  </g>
-  <g transform="translate(70 318)" font-family="{MONO}">
-    <text x="0" y="0" font-size="26" fill="{CYAN}">&gt;</text>
-    <g transform="translate(30 0)">{re.sub(r"<clipPath.*?</clipPath>", "", "".join(typing))}</g>
-  </g>
-  <rect x="1" y="1" width="{W - 2}" height="{H - 2}" rx="21" fill="none" stroke="url(#brand)" stroke-width="2" opacity=".8"/>
-</g>"""
-    return svg(
-        W, H, body, "Oussama Ben Henia",
-        "Animated banner: Oussama Ben Henia, engineering student at ENIT, with rotating roles: "
-        + ", ".join(ROLES), "".join(css),
-    )
-
-
-# ------------------------------------------------------------ headers
-def header(label, sub):
-    W, H = 1200, 80
-    body = f"""
-<defs>{grad("g", BRAND)}</defs>
-<text x="4" y="46" font-family="{SANS}" font-size="38" font-weight="700" fill="{TEXT}">{escape(label)}</text>
-<text x="{26 + len(label) * 21}" y="46" font-family="{SANS}" font-size="20" fill="{MUTED}">{escape(sub)}</text>
-<rect x="4" y="64" width="1192" height="3" rx="1.5" fill="url(#g)" opacity=".85"/>"""
-    return svg(W, H, f'<rect width="{W}" height="{H}" fill="{NAVY}" rx="10"/>' + body, label, sub)
-
-
-# -------------------------------------------------------------- about
-def about_terminal():
-    W, H = 1200, 330
-    lines = [
-        ("$", "whoami", TEXT),
-        ("", "oussama-ben-henia", CYAN),
-        ("$", "cat education.txt", TEXT),
-        ("", "École Nationale d'Ingénieurs de Tunis (ENIT), engineering cycle", MUTED),
-        ("$", "ls projects/", TEXT),
-        ("", "r3t/   phyto-cappuccino/   line-follower/   neural-agent/", MUTED),
-        ("$", "cat interests.txt", TEXT),
-        ("", "software · local AI agents · embedded control · building a business", MUTED),
-    ]
-    out, css = [], []
-    for i, (pre, txt, col) in enumerate(lines):
-        y = 92 + i * 30
-        delay = 0.4 + i * 0.55
-        css.append(f".l{i}{{opacity:0;animation:sh .01s {delay:.2f}s forwards}}")
-        out.append(
-            f'<g class="l{i}"><text x="40" y="{y}" font-family="{MONO}" font-size="20" fill="{GREEN}">{pre}</text>'
-            f'<text x="66" y="{y}" font-family="{MONO}" font-size="20" fill="{col}" xml:space="preserve">{escape(txt)}</text></g>'
-        )
-    css.append("@keyframes sh{to{opacity:1}}.cur{animation:bl 1s steps(1) infinite}@keyframes bl{50%{opacity:0}}"
-               "@media (prefers-reduced-motion: reduce){[class^=l]{opacity:1!important}}")
-    body = f"""
-<defs>{grad("g", BRAND)}</defs>
-<rect width="{W}" height="{H}" rx="16" fill="{NAVY}" stroke="url(#g)" stroke-width="2"/>
-<rect width="{W}" height="44" rx="16" fill="{PANEL}"/><rect y="28" width="{W}" height="16" fill="{PANEL}"/>
-<circle cx="30" cy="22" r="7" fill="{MAGENTA}"/><circle cx="54" cy="22" r="7" fill="{GOLD}"/><circle cx="78" cy="22" r="7" fill="{GREEN}"/>
-<text x="600" y="28" text-anchor="middle" font-family="{MONO}" font-size="16" fill="{MUTED}">oussama@enit: ~</text>
-{"".join(out)}
-<rect class="cur" x="66" y="{92 + len(lines) * 30 - 18}" width="11" height="20" fill="{CYAN}"/>"""
-    return svg(W, H, body, "About me, terminal style", "Engineering student at ENIT building software, AI agents, robots and a beverage brand.", "".join(css))
-
-
-def pillars():
-    W, H = 1200, 190
-    items = [
-        ("Engineering", "Maths & systems thinking", CYAN, "∑"),
-        ("AI", "Local agents & automation", PURPLE, "◈"),
-        ("Robotics", "ESP32 · sensors · PID", MAGENTA, "⚙"),
-        ("Venture", "PHYTO Cappuccino", GOLD, "★"),
-    ]
-    cw = 285
-    out, css = [], []
-    for i, (t, s, c, ic) in enumerate(items):
-        x = i * (cw + 20)
-        css.append(f".p{i}{{animation:fl 6s ease-in-out {i * 0.7}s infinite}}")
-        out.append(
-            f'<g transform="translate({x} 0)"><g class="p{i}"><rect width="{cw}" height="{H - 10}" rx="16" fill="{PANEL}" stroke="{c}" stroke-opacity=".7" stroke-width="2"/>'
-            f'<text x="26" y="66" font-family="{SANS}" font-size="44" fill="{c}">{ic}</text>'
-            f'<text x="26" y="112" font-family="{SANS}" font-size="30" font-weight="700" fill="{TEXT}">{t}</text>'
-            f'<text x="26" y="146" font-family="{SANS}" font-size="19" fill="{MUTED}">{escape(s)}</text></g></g>'
-        )
-    css.append("@keyframes fl{50%{transform:translateY(-4px)}}")
-    return svg(W, H, "".join(out), "Four pillars", "Engineering, AI, robotics, and entrepreneurship.", "".join(css).replace(".p0{", ".p0{", 1))
-
-
-# --------------------------------------------------------------- tech
-TECH = [
-    ("Languages", CYAN, ["Python", "JavaScript", "HTML / CSS"]),
-    ("Web & apps", BLUE, ["PWA", "Responsive UI", "Desktop apps (pywebview)"]),
-    ("AI & automation", PURPLE, ["Ollama · local LLMs", "AI agents / tool calling", "PyAutoGUI"]),
-    ("Robotics & embedded", MAGENTA, ["ESP32", "PID control", "Sensors & motors"]),
-    ("Workflow", GREEN, ["Git & GitHub", "GitHub Actions", "AI-assisted development"]),
-]
-
-
-def tech():
-    W = 1200
-    rowh = 78
-    H = len(TECH) * rowh + 10
-    out = []
-    for r, (cat, col, items) in enumerate(TECH):
-        y = r * rowh
-        out.append(f'<rect y="{y}" width="{W}" height="{rowh - 12}" rx="14" fill="{PANEL}"/>'
-                   f'<rect y="{y}" width="8" height="{rowh - 12}" rx="4" fill="{col}"/>'
-                   f'<text x="30" y="{y + 40}" font-family="{SANS}" font-size="22" font-weight="700" fill="{col}">{escape(cat)}</text>')
-        x = 290
-        for it in items:
-            w = 28 + len(it) * 12.5
-            out.append(f'<rect x="{x:.0f}" y="{y + 12}" width="{w:.0f}" height="40" rx="20" fill="{col}" fill-opacity=".12" stroke="{col}" stroke-opacity=".8"/>'
-                       f'<text x="{x + w / 2:.0f}" y="{y + 38}" text-anchor="middle" font-family="{SANS}" font-size="19" fill="{TEXT}">{escape(it)}</text>')
-            x += w + 14
-    return svg(W, H, "".join(out), "Technology stack",
-               "; ".join(f"{c}: {', '.join(i)}" for c, _, i in TECH))
-
-
-# ----------------------------------------------------------- projects
-PROJECTS = [
-    ("r3t", "R3T", "Real-time railway tracking", CYAN, BLUE,
-     "Tracks trains in real time, built as a mobile-friendly PWA.",
-     ["PWA", "Real-time", "Mobile-first"], "PRIVATE REPOSITORY"),
-    ("phyto", "PHYTO Cappuccino", "Beverage brand & website", GOLD, MAGENTA,
-     "My beverage brand: the product, the identity and the website.",
-     ["Brand", "Web", "Startup"], "PRIVATE REPOSITORY"),
-    ("robot", "ESP32 Line-Follower", "Robotics · control systems", GREEN, CYAN,
-     "Follows a line using a sensor array, motor control and PID.",
-     ["ESP32", "PID", "Sensors"], "ROBOTICS PROJECT"),
-    ("neural", "Neural Agent", "Local AI desktop assistant", PURPLE, MAGENTA,
-     "Windows assistant on local Ollama models: chat, files, PC actions.",
-     ["Python", "Ollama", "pywebview"], "PUBLIC REPOSITORY"),
-]
-
-
-def project(slug, name, kind, c1, c2, desc, tags, status):
-    W, H = 1200, 250
-    chips, x = [], 44
-    for t in tags:
-        w = 30 + len(t) * 12
-        chips.append(f'<rect x="{x}" y="186" width="{w}" height="36" rx="18" fill="{c1}" fill-opacity=".14" stroke="{c1}" stroke-opacity=".8"/>'
-                     f'<text x="{x + w / 2}" y="210" text-anchor="middle" font-family="{MONO}" font-size="17" fill="{TEXT}">{escape(t)}</text>')
-        x += w + 12
-    hint = "Open details" if slug != "neural" else "Open details · repo"
-    body = f"""
-<defs>{grad("g", [("0", c1), ("1", c2)], "0", "1")}
-<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#121842"/><stop offset="1" stop-color="{PANEL}"/></linearGradient>
-<linearGradient id="hl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{c1}" stop-opacity=".9"/><stop offset=".6" stop-color="{c2}" stop-opacity=".25"/><stop offset="1" stop-color="{c2}" stop-opacity="0"/></linearGradient>
-<radialGradient id="gl" cx="1" cy="0" r="1"><stop offset="0" stop-color="{c2}" stop-opacity=".22"/><stop offset="1" stop-color="{c2}" stop-opacity="0"/></radialGradient>
-<clipPath id="f"><rect width="{W}" height="{H}" rx="16"/></clipPath></defs>
-<g clip-path="url(#f)">
-<rect width="{W}" height="{H}" fill="url(#p)"/>
-<rect width="{W}" height="{H}" fill="url(#gl)"/>
-<rect width="{W}" height="2" fill="url(#hl)"/>
-<rect width="7" height="{H}" fill="url(#g)"/></g>
-<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="16" fill="none" stroke="#2A3270" stroke-opacity=".9"/>
-<text x="44" y="56" font-family="{MONO}" font-size="16" fill="{c1}" letter-spacing="2.5">{escape(status)}</text>
-<text x="44" y="114" font-family="{SANS}" font-size="50" font-weight="700" fill="{TEXT}" letter-spacing="-.5">{escape(name)}</text>
-<text x="44" y="148" font-family="{SANS}" font-size="23" fill="{c1}">{escape(kind)}</text>
-<text x="44" y="178" font-family="{SANS}" font-size="21" fill="{MUTED}">{escape(desc)}</text>
-{"".join(chips)}
-<text x="{W - 44}" y="{H - 28}" text-anchor="end" font-family="{MONO}" font-size="16" fill="{MUTED}" letter-spacing="1">{hint}  ▾</text>"""
-    css = ""
-    return svg(W, H, body, f"{name}: {kind}", f"{desc} Status: {status}.", css)
-
-
-# ---------------------------------------------------------------- nav
-NAV = [("about", "About", CYAN), ("stack", "Stack", BLUE), ("projects", "Projects", PURPLE),
-       ("activity", "Activity", MAGENTA)]
-
-
-def nav(label, c):
-    W, H = 220, 56
-    body = f"""<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#151B48"/><stop offset="1" stop-color="{PANEL}"/></linearGradient></defs>
-<rect x="1" y="1" width="{W - 2}" height="{H - 2}" rx="28" fill="url(#g)" stroke="{c}" stroke-opacity=".55" stroke-width="1.5"/>
-<circle cx="38" cy="28" r="5" fill="{c}"/>
-<text x="60" y="35" font-family="{SANS}" font-size="22" font-weight="600" fill="{TEXT}">{escape(label)}</text>"""
-    return svg(W, H, body, label, f"Jump to the {label} section")
-
-
-# -------------------------------------------------------------- stats
-def render_stats(d=None):
-    """d: dict(repos, followers, commits, prs, issues, since, langs=[(name, pct)]) or None."""
-    W, H = 1200, 360
-    pending = d is None
-    nums = [("Public repos", "repos", CYAN), ("Contributions (last year)", "commits", PURPLE),
-            ("Pull requests", "prs", MAGENTA), ("Top language", "top", GOLD)]
-    out = []
-    for i, (lab, key, c) in enumerate(nums):
-        x, y = 40 + (i % 2) * 290, 126 + (i // 2) * 105
-        if pending:
-            v = "—"
-        elif key == "top":
-            v = d["langs"][0][0] if d["langs"] else "—"
+        a, b = k * 20, k * 20 + 20
+        if k == 0:
+            kf = f"0%,17%{{opacity:1}}20%,97%{{opacity:0}}100%{{opacity:1}}"
         else:
-            v = f"{d[key]:,}"
-        out.append(f'<rect x="{x}" y="{y - 52}" width="270" height="90" rx="14" fill="{NAVY}" stroke="{c}" stroke-opacity=".6"/>'
-                   f'<text x="{x + 20}" y="{y + 8}" font-family="{SANS}" font-size="{44 if len(str(v)) < 9 else 34}" font-weight="800" fill="{c}">{v}</text>'
-                   f'<text x="{x + 20}" y="{y + 30}" font-family="{SANS}" font-size="16" fill="{MUTED}">{escape(lab)}</text>')
-    langs = [] if pending else d["langs"][:6]
-    pal = [CYAN, PURPLE, MAGENTA, BLUE, GREEN, GOLD]
-    if pending:
-        out.append(f'<text x="700" y="150" font-family="{MONO}" font-size="20" fill="{MUTED}">Live numbers appear after the first run of</text>'
-                   f'<text x="700" y="180" font-family="{MONO}" font-size="20" fill="{CYAN}">.github/workflows/stats.yml</text>')
+            kf = f"0%,{a - 3}%{{opacity:0}}{a}%,{b - 3}%{{opacity:1}}{b}%,100%{{opacity:0}}"
+        css.append(f"@keyframes r{k}{{{kf}}}.r{k}{{animation:r{k} {cycle:.0f}s ease-in-out infinite}}")
+        roles.append(t(0, 0, role, 44, INK, SERIF, 400, style="italic", extra=f'class="r r{k}"'))
+    css.append(
+        "@keyframes run{0%,8%{transform:translateX(0)}28%,36%{transform:translateX(360px)}"
+        "56%,64%{transform:translateX(720px)}84%,100%{transform:translateX(1080px)}}"
+        ".train{animation:run 32s cubic-bezier(.6,0,.4,1) infinite alternate}"
+        "@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}"
+        ".a1{animation:rise 1.1s .1s cubic-bezier(.2,.7,.2,1) both}.a2{animation:rise 1.1s .3s cubic-bezier(.2,.7,.2,1) both}"
+        ".a3{animation:rise 1.1s .5s cubic-bezier(.2,.7,.2,1) both}"
+    )
+    line_y = 612
+    stations = "".join(
+        f'<circle cx="{x}" cy="{line_y}" r="13" fill="{PAPER}" stroke="{INK}" stroke-width="5"/>'
+        + t(x, line_y + 44, lab, 16, INK, MONO, 500, anchor=anc, ls=2)
+        for x, lab, anc in STATIONS
+    )
+    body = f"""
+{paper(W, H)}
+<rect x="50" y="42" width="1100" height="4" fill="{INK}"/>
+{t(50, 32, "NOTES FROM A WORKBENCH", 15, INK, MONO, 500, ls=3)}
+{t(600, 32, "ISSUE Nº 01", 15, INK, MONO, 500, anchor="middle", ls=3)}
+{t(1150, 32, "TUNIS · 2026", 15, INK, MONO, 500, anchor="end", ls=3)}
+<circle cx="1020" cy="200" r="104" fill="{VERM}"/>
+<circle cx="1020" cy="200" r="132" fill="none" stroke="{INK}" stroke-width="1.5"/>
+<g class="a1">{t(44, 318, "Oussama", 214, INK, SERIF, 400, ls=-7, extra='textLength="760" lengthAdjust="spacingAndGlyphs"')}</g>
+<g class="a2">{t(250, 510, "Ben Henia", 214, INK, SERIF, 400, ls=-7, style="italic", extra='textLength="820" lengthAdjust="spacingAndGlyphs"')}
+<circle cx="1100" cy="494" r="17" fill="{VERM}"/></g>
+<g class="a3">
+{t(50, 576, "NOW  —", 16, VERM, MONO, 700, ls=3)}
+<g transform="translate(150 576)">{"".join(roles)}</g></g>
+<line x1="60" y1="{line_y}" x2="1140" y2="{line_y}" stroke="{INK}" stroke-width="7" stroke-linecap="round"/>
+{stations}
+<g class="train"><g transform="translate(38 {line_y - 26})">
+<rect width="44" height="22" fill="{VERM}"/><rect x="5" y="5" width="8" height="7" fill="{PAPER}"/><rect x="18" y="5" width="8" height="7" fill="{PAPER}"/><rect x="31" y="5" width="8" height="7" fill="{PAPER}"/>
+<rect y="22" width="44" height="3" fill="{INK}"/></g></g>"""
+    return svg(W, H, body, "Oussama Ben Henia",
+               "Masthead of the profile: Oussama Ben Henia, " + "; ".join(ROLES) + ". A route diagram with four stations: About, Index, Work, Activity.",
+               "".join(css))
+
+
+# ================================================================ headers
+def header(num, title, caption, flip=False):
+    W, H = 1200, 200
+    css = ("@keyframes d{from{transform:scaleX(0)}to{transform:scaleX(1)}}"
+           ".rule{transform-origin:50px 0;animation:d 1.4s cubic-bezier(.6,0,.2,1) both}")
+    if not flip:
+        num_el = t(46, 170, num, 150, VERM, SERIF, 400, style="italic", ls=-4)
+        title_el = t(300, 160, title, 104, INK, SERIF, 400, ls=-2)
+        cap_el = t(1150, 84, caption, 15, MUTE, MONO, 500, anchor="end", ls=3)
+        tab = f'<rect x="50" y="10" width="90" height="11" fill="{VERM}"/>'
     else:
-        out.append(f'<text x="640" y="86" font-family="{SANS}" font-size="22" font-weight="700" fill="{TEXT}">Languages (public repositories)</text>')
-        for i, (n, p) in enumerate(langs):
-            y = 112 + i * 38
-            out.append(f'<text x="640" y="{y + 16}" font-family="{SANS}" font-size="18" fill="{TEXT}">{escape(n)}</text>'
-                       f'<rect x="780" y="{y}" width="340" height="14" rx="7" fill="{NAVY}"/>'
-                       f'<rect x="780" y="{y}" width="{max(6, 340 * p / 100):.0f}" height="14" rx="7" fill="{pal[i % 6]}"/>'
-                       f'<text x="1130" y="{y + 14}" font-family="{MONO}" font-size="16" fill="{MUTED}">{p:.0f}%</text>')
-    foot = "Placeholder: not yet generated" if pending else f"Source: GitHub API · updated {d['updated']}"
-    body = f"""<defs>{grad("g", BRAND)}</defs>
-<rect width="{W}" height="{H}" rx="18" fill="{PANEL}" stroke="url(#g)" stroke-width="2"/>
-<text x="40" y="44" font-family="{SANS}" font-size="22" font-weight="700" fill="{TEXT}">GitHub activity</text>
-{"".join(out)}
-<text x="40" y="{H - 18}" font-family="{MONO}" font-size="14" fill="{MUTED}">{escape(foot)}</text>"""
-    return svg(W, H, body, "GitHub statistics", "Public repositories, contributions, pull requests, followers and language mix, from the GitHub API.")
+        num_el = t(1154, 170, num, 150, VERM, SERIF, 400, anchor="end", style="italic", ls=-4)
+        title_el = t(50, 160, title, 104, INK, SERIF, 400, ls=-2)
+        cap_el = t(50, 84, caption, 15, MUTE, MONO, 500, ls=3)
+        tab = f'<rect x="1060" y="10" width="90" height="11" fill="{VERM}"/>'
+    body = f"""{paper(W, H, PAPER, False)}
+<rect class="rule" x="50" y="14" width="1100" height="3" fill="{INK}"/>{tab}
+{num_el}{title_el}{cap_el}"""
+    return svg(W, H, body, title, caption, css)
 
 
+# ================================================================ index
+LEFT = [("Python", "04"), ("JavaScript", "04"), ("HTML & CSS", "04"), ("Local language models", "04"),
+        ("Agents & tool calling", "04"), ("Desktop apps, pywebview", "04"), ("Desktop automation", "04")]
+RIGHT = [("ESP32", "03"), ("PID control", "03"), ("Sensors & motors", "03"), ("Progressive web apps", "01"),
+         ("Responsive web", "01"), ("Brand & product", "02"), ("Git, GitHub Actions", "—")]
+
+
+def index():
+    W, H = 1200, 600
+    def col(x0, x1, title, rows, refcol):
+        o = [t(x0, 56, title, 30, INK, SERIF, 400, style="italic"),
+             f'<rect x="{x0}" y="74" width="{x1 - x0}" height="2" fill="{INK}"/>']
+        for i, (name, ref) in enumerate(rows):
+            y = 134 + i * 60
+            wd = sum(23 if c.isupper() else 8.5 if c in ' ,' else 10 if c in '&.' else 16 for c in name)
+            o.append(t(x0, y, name, 34, INK, SERIF, 400, extra=f'textLength="{wd:.0f}" lengthAdjust="spacingAndGlyphs"'))
+            nx = x0 + wd + 16
+            o.append(f'<line x1="{nx:.0f}" y1="{y - 7}" x2="{x1 - 56}" y2="{y - 7}" stroke="{INK}" stroke-opacity=".45" stroke-width="2.5" stroke-dasharray="0.1 9" stroke-linecap="round"/>')
+            o.append(t(x1, y, ref, 24, refcol, MONO, 700, anchor="end"))
+        return "".join(o)
+    body = f"""{paper(W, H)}
+{col(50, 640, "Software & intelligence", LEFT, VERM)}
+{col(730, 1150, "Hardware, web & making", RIGHT, OLIVE)}
+<line x1="685" y1="40" x2="685" y2="530" stroke="{INK}" stroke-width="1"/>
+{t(50, 568, "FIGURES REFER TO PROJECTS ·  01 R3T  ·  02 PHYTO  ·  03 LINE FOLLOWER  ·  04 NEURAL AGENT", 14, MUTE, MONO, 500, ls=1.5)}"""
+    names = ", ".join(n for n, _ in LEFT + RIGHT)
+    return svg(W, H, body, "Index of tools", "Tools and skills, each with the project number where it was used: " + names)
+
+
+# ================================================================ projects
+def _kv(x, y, rows, fill, keyfill, size=16, gap=30):
+    o = []
+    for i, (k, v) in enumerate(rows):
+        o.append(t(x, y + i * gap, k, size, keyfill, MONO, 700, ls=2))
+        o.append(t(x + 130, y + i * gap, v, size, fill, MONO, 400))
+    return "".join(o)
+
+
+def project_r3t():
+    W, H = 1200, 470
+    VP = (905, 214)
+    bl, br, by = 745, 1065, 456
+    rails = "".join(f'<line x1="{x}" y1="{by}" x2="{VP[0]}" y2="{VP[1]}" stroke="{PAPER}" stroke-width="3.5"/>' for x in (bl, br))
+    ties = []
+    for k in range(0, 16):
+        s = 1 - 0.8 ** k
+        y = by + s * (VP[1] - by)
+        xl, xr = bl + s * (VP[0] - bl), br + s * (VP[0] - br)
+        ext = (xr - xl) * 0.16
+        ties.append(f'<line x1="{xl - ext:.1f}" y1="{y:.1f}" x2="{xr + ext:.1f}" y2="{y:.1f}" stroke="{PAPER}" stroke-opacity=".65" stroke-width="{max(.8, 4 * (1 - s)):.1f}"/>')
+    sx = [560, 730, 900, 1070]
+    stations = "".join(f'<circle cx="{x}" cy="116" r="10" fill="{INK}" stroke="{PAPER}" stroke-width="3.5"/>' for x in sx)
+    css = ("@keyframes go{0%{transform:translateX(0);opacity:0}10%{opacity:1}82%{opacity:1}100%{transform:translateX(340px);opacity:0}}"
+           ".m{animation:go 11s cubic-bezier(.5,0,.5,1) infinite}")
+    body = f"""{paper(W, H, INK)}
+{t(50, 62, "Nº 01 — TRANSPORT", 16, VERM, MONO, 700, ls=3)}
+{t(40, 262, "R3T", 230, PAPER, SANS, 700, ls=-14)}
+{t(52, 322, "Real-time railway tracking", 32, SOFT, SERIF, 400, style="italic")}
+{_kv(52, 384, [("FORMAT", "Progressive web app"), ("SURFACE", "Phone first"), ("STATUS", "Private repository")], PAPER, VERM)}
+<line x1="560" y1="116" x2="900" y2="116" stroke="{PAPER}" stroke-width="6" stroke-linecap="round"/>
+<line x1="900" y1="116" x2="1150" y2="116" stroke="{PAPER}" stroke-width="4" stroke-dasharray="0.1 12" stroke-linecap="round" stroke-opacity=".8"/>
+{stations}
+<circle class="m" cx="560" cy="116" r="9" fill="{VERM}"/>
+{t(560, 170, "— LIVE POSITION", 15, SOFT, MONO, 500, ls=2)}{t(820, 168, "··· TIMETABLE ESTIMATE", 15, SOFT, MONO, 500, ls=2)}
+{rails}{"".join(ties)}
+<circle cx="{VP[0]}" cy="{VP[1]}" r="7" fill="{VERM}"/>"""
+    return svg(W, H, body, "R3T: real-time railway tracking",
+               "Project 01. R3T, a mobile-first progressive web app for real-time railway tracking. Private repository. Drawing: a route line showing live position against timetable estimate, above railway tracks in perspective.", css)
+
+
+def leaf(scale=1.0):
+    veins = "".join(f'<path d="M0 {y}L-20 {y - 18}M0 {y}L20 {y - 18}" fill="none" stroke-width="1.6"/>' for y in (30, 8, -14, -36))
+    return (f'<g transform="scale({scale})"><path d="M0 62C-52 22 -48 -36 0 -72C48 -36 52 22 0 62Z"/>'
+            f'<path d="M0 58V-64" fill="none" stroke-width="2.2"/>{veins}</g>')
+
+
+def project_phyto():
+    W, H = 1200, 520
+    cx, cy = 940, 268
+    ring = f"M{-168} 0a168 168 0 1 1 336 0a168 168 0 1 1 -336 0"
+    css = ("@keyframes sp{to{transform:rotate(360deg)}}.spin{transform-origin:0 0;animation:sp 140s linear infinite}"
+           "@keyframes br{50%{transform:translateY(-6px)}}.bob{animation:br 9s ease-in-out infinite}")
+    sprig = ""
+    for i, (x, y, rot, sc) in enumerate([(0, 0, 6, .55), (-26, -58, -38, .5), (28, -98, 36, .48), (-20, -146, -32, .44), (6, -190, 8, .4)]):
+        sprig += f'<g transform="translate({x} {y}) rotate({rot})" fill="{OLIVE}" stroke="{KRAFT}" fill-opacity="{.95 - i * .08:.2f}">{leaf(sc)}</g>'
+    body = f"""{paper(W, H, KRAFT)}
+{t(50, 62, "Nº 02 — BEVERAGE BRAND", 16, VERM, MONO, 700, ls=3)}
+{t(44, 262, "Phyto", 230, INK, SERIF, 400, ls=-8, extra='textLength="520" lengthAdjust="spacingAndGlyphs"')}
+{t(50, 380, "Cappuccino", 120, OLIVE, SERIF, 400, ls=-3, style="italic", extra='textLength="560" lengthAdjust="spacingAndGlyphs"')}
+{_kv(52, 446, [("FORMAT", "Product, identity, website"), ("STATUS", "Private repository")], INK, VERM)}
+<g transform="translate({cx} {cy})">
+ <g class="spin"><path id="rp" d="{ring}" fill="none"/>
+  <text font-family="{MONO}" font-size="21" font-weight="700" fill="{INK}" letter-spacing="3"><textPath href="#rp" textLength="1040" lengthAdjust="spacingAndGlyphs">PHYTO · CAPPUCCINO · PHYTO · CAPPUCCINO · PHYTO · CAPPUCCINO ·</textPath></text></g>
+ <circle r="198" fill="none" stroke="{INK}" stroke-width="1.5"/>
+ <circle r="138" fill="{PAPER}" stroke="{INK}" stroke-width="3"/>
+ <circle r="112" fill="#5B3520"/>
+ <g class="bob"><g fill="{PAPER}" stroke="#5B3520">{leaf(1.05)}</g></g>
+</g>
+<circle cx="1120" cy="74" r="48" fill="{VERM}"/>{t(1120, 80, "Nº 02", 20, PAPER, MONO, 700, anchor="middle", ls=1)}
+<path d="M700 520C704 440 692 380 702 300" fill="none" stroke="{OLIVE}" stroke-width="3"/>
+<g transform="translate(704 470)">{sprig}</g>"""
+    return svg(W, H, body, "PHYTO Cappuccino: beverage brand",
+               "Project 02. PHYTO Cappuccino, my beverage brand: product, identity and website. Private repository. Drawing: a cappuccino seen from above with a leaf in the foam, inside a rotating wordmark seal.", css)
+
+
+def project_robot():
+    W, H = 1200, 480
+    cx, cy = 735, 215
+    grid = "".join(f'<line x1="{x}" y1="0" x2="{x}" y2="{H}" stroke="{PAPER}" stroke-opacity=".10"/>' for x in range(0, W, 40)) + \
+           "".join(f'<line x1="0" y1="{y}" x2="{W}" y2="{y}" stroke="{PAPER}" stroke-opacity=".10"/>' for y in range(0, H, 40))
+    path = "M440 400 C 560 400 600 330 700 330 S 840 410 960 410 S 1100 340 1190 340"
+    css = ("@keyframes sw{0%,100%{transform:rotate(-3.5deg)}50%{transform:rotate(3.5deg)}}.sway{transform-origin:0 0;animation:sw 7s ease-in-out infinite}"
+           "@keyframes fl{to{stroke-dashoffset:-60}}.track{animation:fl 6s linear infinite}")
+    sensors = "".join(f'<circle cx="{x}" cy="-78" r="7" fill="{VERM}" stroke="{PAPER}" stroke-width="2"/>' for x in (-70, -35, 0, 35, 70))
+    pins = "".join(f'<line x1="{x}" y1="-28" x2="{x}" y2="-38" stroke="{PAPER}" stroke-width="2"/><line x1="{x}" y1="28" x2="{x}" y2="38" stroke="{PAPER}" stroke-width="2"/>' for x in range(-40, 41, 16))
+    body = f"""{paper(W, H, COBALT)}
+{grid}
+{t(50, 62, "Nº 03 — ROBOTICS", 16, PAPER, MONO, 700, ls=3)}
+{t(46, 200, "Line", 150, PAPER, SANS, 700, ls=-8)}
+{t(46, 330, "follower", 130, PAPER, SERIF, 400, ls=-4, style="italic")}
+{_kv(52, 392, [("BOARD", "ESP32"), ("CONTROL", "PID, closed loop"), ("STATUS", "Robotics project")], PAPER, LAV)}
+<path class="track" d="{path}" fill="none" stroke="{PAPER}" stroke-width="16" stroke-linecap="round" stroke-dasharray="46 14" stroke-opacity=".9"/>
+<g transform="translate({cx} {cy}) scale(1.25)"><g class="sway">
+ <rect x="-52" y="-72" width="104" height="144" fill="none" stroke="{PAPER}" stroke-width="2.5"/>
+ <rect x="-82" y="-40" width="26" height="70" fill="{INK}" stroke="{PAPER}" stroke-width="2"/><rect x="56" y="-40" width="26" height="70" fill="{INK}" stroke="{PAPER}" stroke-width="2"/>
+ <rect x="-34" y="-26" width="68" height="52" fill="none" stroke="{PAPER}" stroke-width="2"/>{pins}
+ {t(0, 6, "ESP32", 15, PAPER, MONO, 700, anchor="middle", ls=1)}
+ {sensors}
+ <line x1="0" y1="-120" x2="0" y2="110" stroke="{PAPER}" stroke-width="1" stroke-dasharray="10 6 2 6" stroke-opacity=".8"/>
+</g>
+ <line x1="60" y1="-78" x2="170" y2="-130" stroke="{PAPER}" stroke-width="1.2"/><line x1="170" y1="-130" x2="330" y2="-130" stroke="{PAPER}" stroke-width="1.2"/>{t(176, -138, "sensor array", 16, PAPER, MONO, 500)}
+ <line x1="82" y1="0" x2="170" y2="30" stroke="{PAPER}" stroke-width="1.2"/><line x1="170" y1="30" x2="330" y2="30" stroke="{PAPER}" stroke-width="1.2"/>{t(176, 22, "motor + wheel", 16, PAPER, MONO, 500)}
+</g>
+{t(440, 456, "u(t) = Kp·e(t) + Ki·∫e dt + Kd·de/dt", 20, PAPER, MONO, 500)}"""
+    return svg(W, H, body, "ESP32 line-follower robot",
+               "Project 03. A line-following robot with an ESP32, a sensor array, motors and PID control. Drawing: top-view technical sketch with callouts and the PID equation.", css)
+
+
+def project_neural():
+    W, H = 1200, 400
+    log = [("opens apps and websites", True), ("reads and writes files", True), ("reports CPU, memory, disk", True), ("asks before typing", False)]
+    css = ""
+    rows = []
+    for i, (txt, ok) in enumerate(log):
+        y = 156 + i * 56
+        css += f".g{i}{{opacity:0;animation:sh .01s {0.6 + i * 0.9:.1f}s forwards}}"
+        mark = (f'<polyline points="760,{y - 8} 770,{y + 2} 788,{y - 20}" fill="none" stroke="{OLIVE}" stroke-width="4" stroke-linecap="square"/>' if ok
+                else t(762, y + 2, "?", 28, VERM, MONO, 700))
+        rows.append(f'<g class="g{i}">{mark}{t(808, y, txt, 22, INK, MONO, 400)}</g>')
+    css += "@keyframes sh{to{opacity:1}}@media (prefers-reduced-motion: reduce){[class^=g]{opacity:1!important}}"
+    body = f"""{paper(W, H)}
+<rect x="720" y="0" width="480" height="{H}" fill="{LAV}"/><rect x="720" y="0" width="480" height="{H}" filter="url(#grain)"/>
+{t(50, 62, "Nº 04 — OPEN SOURCE", 16, VERM, MONO, 700, ls=3)}
+{t(44, 172, "Neural", 124, INK, SERIF, 400, ls=-4, extra='textLength="400" lengthAdjust="spacingAndGlyphs"')}
+{t(44, 278, "Agent", 124, INK, SERIF, 400, ls=-4, style="italic", extra='textLength="310" lengthAdjust="spacingAndGlyphs"')}
+{t(50, 340, "A Windows assistant that runs on local models. No cloud, no API key.", 21, MUTE, SERIF, 400, style="italic")}
+{t(50, 376, "PYTHON · OLLAMA · PYWEBVIEW   —   PUBLIC REPOSITORY", 14, INK, MONO, 700, ls=2)}
+{t(760, 74, "IT CAN", 15, INK, MONO, 700, ls=3)}
+<rect x="760" y="88" width="390" height="2" fill="{INK}"/>
+{"".join(rows)}"""
+    return svg(W, H, body, "Neural Agent",
+               "Project 04. Neural Agent, a Windows desktop assistant built on local Ollama models. Public repository. It opens apps and websites, reads and writes files, reports system status, and asks before typing.", css)
+
+
+# ================================================================ stats
+def render_stats(d=None):
+    """d: dict(repos, commits, prs, langs=[(name, pct)], updated) or None (placeholder)."""
+    W, H = 1200, 470
+    pending = d is None
+    cols = [(50, "repos", "Public repositories", VERM), (440, "commits", "Contributions, last year", INK), (830, "prs", "Pull requests", OLIVE)]
+    o = []
+    for x, key, lab, col in cols:
+        v = "—" if pending else (f"{d[key]:02d}" if d[key] < 100 else str(d[key]))
+        o.append(f'<rect x="{x}" y="40" width="320" height="3" fill="{INK}"/>')
+        o.append(t(x - 4, 190, v, 168, col, SERIF, 400, ls=-6))
+        o.append(t(x, 228, lab.upper(), 15, MUTE, MONO, 700, ls=2.5))
+    if pending:
+        o.append(t(50, 360, "Live numbers appear after the first run of .github/workflows/stats.yml", 20, MUTE, MONO, 400))
+    else:
+        o.append(t(50, 290, "LANGUAGES IN PUBLIC REPOSITORIES, SET IN PROPORTION", 15, MUTE, MONO, 700, ls=2.5))
+        x, cols_ = 50, [VERM, INK, OLIVE, COBALT, MUTE]
+        for i, (n, p) in enumerate(d["langs"][:5]):
+            size = 30 + p * 1.05
+            o.append(t(x, 400, n, round(size), cols_[i % 5], SERIF, 400, style="italic" if i % 2 else "normal", ls=-1))
+            w = len(n) * size * 0.5
+            o.append(t(x + 2, 428, f"{p:.0f}%", 15, MUTE, MONO, 700))
+            x += w + 56
+    foot = "Placeholder, not yet generated" if pending else f"Source: GitHub API · updated {d['updated']}"
+    body = f"""{paper(W, H)}{"".join(o)}{t(1150, 450, foot, 13, MUTE, MONO, 400, anchor="end")}"""
+    return svg(W, H, body, "GitHub activity",
+               "Public repositories, contributions over the last year, pull requests, and language mix, from the GitHub API."
+               + ("" if pending else f" {d['repos']} repositories, {d['commits']} contributions, {d['prs']} pull requests. Languages: "
+                  + ", ".join(f"{n} {p:.0f}%" for n, p in d["langs"][:5]) + "."))
+
+
+# ================================================================ footer
 def footer():
-    W, H = 1200, 110
-    r, p = ribbon(W, H, 55, 34, 120, 18)
-    css = f".w{{animation:dr {p / 18:.0f}s linear infinite}}@keyframes dr{{to{{transform:translateX(-{int(p)}px)}}}}"
-    body = f"""<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" x2="{W}" y1="0" y2="0">
-<stop offset="0" stop-color="{CYAN}"/><stop offset=".5" stop-color="{PURPLE}"/><stop offset="1" stop-color="{MAGENTA}"/></linearGradient>
-<clipPath id="f"><rect width="{W}" height="{H}" rx="18"/></clipPath></defs>
-<g clip-path="url(#f)"><rect width="{W}" height="{H}" fill="{NAVY}"/>
-<g fill="none" stroke="url(#g)" stroke-width="1"><g class="w">{r}</g></g></g>"""
-    return svg(W, H, body, "Footer wave", "Animated gradient wave footer.", css)
+    W, H = 1200, 170
+    css = "@keyframes sl{from{transform:translateX(-80px)}to{transform:translateX(1200px)}}.tr{animation:sl 40s linear infinite}"
+    ties = "".join(f'<line x1="{x}" y1="52" x2="{x}" y2="70" stroke="{INK}" stroke-width="2"/>' for x in range(0, W + 1, 24))
+    body = f"""{paper(W, H, PAPER, False)}{ties}
+<line x1="0" y1="56" x2="{W}" y2="56" stroke="{INK}" stroke-width="3"/><line x1="0" y1="66" x2="{W}" y2="66" stroke="{INK}" stroke-width="3"/>
+<g class="tr"><rect x="0" y="30" width="40" height="20" fill="{VERM}"/><rect x="5" y="35" width="8" height="6" fill="{PAPER}"/><rect x="17" y="35" width="8" height="6" fill="{PAPER}"/><rect x="29" y="35" width="6" height="6" fill="{PAPER}"/></g>
+{t(50, 126, "COLOPHON", 14, VERM, MONO, 700, ls=3)}
+{t(50, 150, "Set in your system's serif, sans and mono. Every drawing is generated from scripts/build_assets.py. Tunis, 2026.", 15, MUTE, MONO, 400)}"""
+    return svg(W, H, body, "Colophon", "Colophon: all drawings are generated by a script; Tunis, 2026.", css)
 
 
+# ================================================================ main
 def main():
     OUT.mkdir(exist_ok=True)
-    files = {"hero.svg": hero(), "about-terminal.svg": about_terminal(), 
-             "tech.svg": tech(), "footer.svg": footer()}
-    for k, (lab, sub) in {"about": ("About", ""), "stack": ("Stack", "what I have used on real projects"),
-                          "projects": ("Projects", ""), "stats": ("Activity", "from the GitHub API"),
-                          "snake": ("Contributions", "")}.items():
-        files[f"h-{k}.svg"] = header(lab, sub)
-    for k, lab, c in NAV:
-        files[f"nav-{k}.svg"] = nav(lab, c)
-    for p in PROJECTS:
-        files[f"project-{p[0]}.svg"] = project(*p)
+    for old in OUT.glob("*.svg"):
+        old.unlink()
+    files = {
+        "masthead.svg": masthead(),
+        "h-about.svg": header("01", "About", "WHO · WHERE"),
+        "h-index.svg": header("02", "Index", "WHAT I HAVE USED", flip=True),
+        "h-work.svg": header("03", "Work", "FOUR PROJECTS"),
+        "h-activity.svg": header("04", "Activity", "FROM THE GITHUB API", flip=True),
+        "index.svg": index(),
+        "project-r3t.svg": project_r3t(),
+        "project-phyto.svg": project_phyto(),
+        "project-robot.svg": project_robot(),
+        "project-neural.svg": project_neural(),
+        "footer.svg": footer(),
+    }
     cache = OUT / "stats.json"  # written by generate_stats.py from the GitHub API
     files["stats.svg"] = render_stats(json.loads(cache.read_text()) if cache.exists() else None)
     for n, c in files.items():
