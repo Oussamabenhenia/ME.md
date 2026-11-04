@@ -3,6 +3,9 @@ on:
   schedule:
     - cron: "41 3 * * *" # daily
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/snake.yml"]
 permissions: {}
 concurrency: snake
 jobs:
@@ -16,7 +19,9 @@ jobs:
       - uses: Platane/snk/svg-only@d8f6715049803e982ee5ff501b6b9b7d5deeb09b # v3.5.0
         with:
           github_user_name: ${{ github.repository_owner }}
-          outputs: dist/github-contribution-grid-snake.svg
+          outputs: |
+            dist/snake-light.svg?color_snake=%231B1814&color_dots=%23E8DFCB,%23EDB9A3,%23E5805A,%23D9441F,%23922C12
+            dist/snake-dark.svg?color_snake=%23F3ECDD&color_dots=%23262219,%23603A2B,%23A5421F,%23D9441F,%23F28A64
       - name: Publish to the output branch (single force-pushed commit)
         run: |
           cd dist
