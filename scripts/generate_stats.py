@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_assets import OUT, render_stats  # noqa: E402
+from build_assets import DARK, LIGHT, OUT, render_stats  # noqa: E402
 
 LOGIN = os.environ.get("PROFILE_LOGIN", "Oussamabenhenia")
 QUERY = """
@@ -49,7 +49,8 @@ def main():
         "updated": date.today().isoformat(),
     }
     (OUT / "stats.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
-    (OUT / "stats.svg").write_text(render_stats(data), encoding="utf-8")
+    (OUT / "stats-light.svg").write_text(render_stats(data, LIGHT), encoding="utf-8")
+    (OUT / "stats-dark.svg").write_text(render_stats(data, DARK), encoding="utf-8")
 
 
 if __name__ == "__main__":
